@@ -1,0 +1,5 @@
+/gen
+/src/protobuf
+/res/user_upload*
+.idea
+go.sum
