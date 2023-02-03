@@ -26,12 +26,15 @@ func (t *BaseController) Feed(c *gin.Context) {
 	} else {
 		latestTime = time.Now()
 	}
-	videoList, nextTime := service.BasicService.ListVideoBefore(latestTime, MaxVideoStreamNumber)
+	videoList, nextTime, err := service.BasicService.ListVideoBefore(latestTime, MaxVideoStreamNumber)
 	data := map[string]interface{}{
 		"status_code": 0,
 		"status_msg":  "",
 		"video_list":  videoList,
 		"next_time":   nextTime,
+	}
+	if err != nil {
+		data["status_code"] = 1
 	}
 	c.AsciiJSON(http.StatusOK, data)
 }

@@ -65,3 +65,20 @@ func TestDeleteVideo(t *testing.T) {
 		return
 	}
 }
+
+func TestListVideoBefore(t *testing.T) {
+	if err := buildEnv(); err != nil {
+		t.Error(err)
+		return
+	}
+	testTime, _ := time.Parse("2006-01-02 15:04:05", "2023-02-02 16:14:13")
+	videos, err := ListVideoBefore(testTime, 30)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fmt.Println(len(videos))
+	for _, video := range videos {
+		fmt.Println(video)
+	}
+}

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"log"
 	"time"
 )
@@ -16,6 +17,15 @@ type Video struct {
 
 func (t *Video) TableName() string {
 	return "t_video"
+}
+
+// PlayerUrl 地址格式为 "/videos/{author_id}/{video_id}"
+func (t *Video) PlayerUrl() string {
+	return fmt.Sprintf("/videos/%v/%v.mp4", t.AuthorId, t.Id)
+}
+
+func (t *Video) CoverUrl() string {
+	return fmt.Sprintf("/covers/%v/%v.png", t.AuthorId, t.Id)
 }
 
 func AddVideo(video *Video) error {
@@ -43,6 +53,17 @@ func DeleteVideo(videoId int64) error {
 	return nil
 }
 
-func ListVideoBefore(latest time.Time, limit int) []*Video {
-	// todo
+// ListVideoBefore
+// 返回在latest之前发布的视频，最多limit条
+// 选择视频的算法未定
+func ListVideoBefore(latest time.Time, limit int) ([]*Video, error) {
+	var videos []*Video
+	if err := db.Where("publish_date < ?", latest).Find(&videos).Error; err != nil {
+		return nil, err
+	}
+	if len(videos) > limit {
+		return videos[:limit], nil
+	} else {
+		return videos, nil
+	}
 }
