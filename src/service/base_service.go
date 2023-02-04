@@ -1,62 +1,19 @@
 package service
 
 import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"mime/multipart"
+	"path"
+	"strings"
 	"time"
 	"video_demo/src/model"
+	"video_demo/src/tools"
 )
 
 var (
 	BasicService = &BasicServicesImpl{}
 )
-
-type RespUser struct {
-	Id            int64  `json:"id"`
-	Name          string `json:"name"`
-	FollowCount   int64  `json:"follow_count"`
-	FollowerCount int64  `json:"follower_count"`
-	IsFollow      bool   `json:"is_follow"`
-}
-
-func fromUser(user *model.User) *RespUser {
-	return &RespUser{
-		Id:            user.Id,
-		Name:          user.Username,
-		FollowCount:   user.FollowCount,
-		FollowerCount: user.FollowerCount,
-		IsFollow:      false,
-	}
-}
-
-type RespVideo struct {
-	Id             int64     `json:"id"`
-	Author         *RespUser `json:"author"`
-	PlayUrl        string    `json:"play_url"`
-	CoverUrl       string    `json:"cover_url"`
-	FavouriteCount int64     `json:"favourite_count"`
-	CommentCount   int64     `json:"comment_count"`
-	IsFavorite     bool      `json:"is_favorite"`
-	Title          string    `json:"title"`
-	PublishDate    int64     `json:"publish_date"`
-}
-
-// 从数据库类型Video转化为Response的Video格式
-func fromVideo(video *model.Video) (*RespVideo, error) {
-	user, err := model.FindUserById(video.AuthorId)
-	if err != nil {
-		return nil, err
-	}
-	return &RespVideo{
-		Id:             video.Id,
-		Author:         fromUser(user),
-		PlayUrl:        video.PlayerUrl(),
-		CoverUrl:       video.CoverUrl(),
-		FavouriteCount: video.FavoriteCount,
-		CommentCount:   video.CommentCount,
-		IsFavorite:     false,
-		Title:          video.Title,
-		PublishDate:    video.PublishDate.Unix(),
-	}, nil
-}
 
 type BasicServices interface {
 	ListVideoBefore(time time.Time, limit int) []*RespVideo
@@ -64,11 +21,12 @@ type BasicServices interface {
 
 type BasicServicesImpl struct{}
 
-func (b *BasicServicesImpl) ListVideoBefore(time time.Time, limit int) (videoList []*RespVideo, nextTime int64, err error) {
-	rawVideos, err := model.ListVideoBefore(time, limit)
+func (b *BasicServicesImpl) ListVideoBefore(latest time.Time, limit int) (videoList []*RespVideo, nextTime int64, err error) {
+	rawVideos, err := model.ListVideoBefore(latest, limit)
 	if err != nil {
 		return nil, 0, err
 	}
+	nextTime = time.Now().Unix()
 	for _, rawVideo := range rawVideos {
 		respVideo, err := fromVideo(rawVideo)
 		if err != nil {
@@ -80,4 +38,45 @@ func (b *BasicServicesImpl) ListVideoBefore(time time.Time, limit int) (videoLis
 		}
 	}
 	return
+}
+
+func (b *BasicServicesImpl) ListVideoByAuthorId(authorId int64) (videoList []*RespVideo, err error) {
+	rawVideos, err := model.ListVideoByAuthorId(authorId)
+	if err != nil {
+		return nil, err
+	}
+	for _, rawVideo := range rawVideos {
+		respVideo, err := fromVideo(rawVideo)
+		if err != nil {
+			return nil, err
+		}
+		videoList = append(videoList, respVideo)
+	}
+	return
+}
+
+// SaveVideo demo没有用户部分，所以先统一存到一个目录下
+func (b *BasicServicesImpl) SaveVideo(header *multipart.FileHeader, title string, c *gin.Context) error {
+	// 实际项目中应当通过token获取用户Id
+	var userId int64 = 125794582365478165
+	video := model.Video{
+		AuthorId:      userId,
+		FavoriteCount: 0,
+		CommentCount:  0,
+		Title:         title,
+		PublishDate:   time.Now(),
+	}
+	videoId, err := model.AddVideo(&video)
+	if err != nil {
+		return err
+	}
+	ext := strings.ToLower(path.Ext(header.Filename))
+	dst := fmt.Sprintf("./res/user_upload_video/%v/%v.%v", userId, videoId, ext)
+	if err = c.SaveUploadedFile(header, dst); err != nil {
+		return err
+	}
+	if err = tools.ExtractCover(video.AuthorId, video.Id); err != nil {
+		return err
+	}
+	return nil
 }

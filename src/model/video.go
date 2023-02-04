@@ -3,7 +3,10 @@ package model
 import (
 	"fmt"
 	"log"
+	"os"
+	"path"
 	"time"
+	"video_demo/src/tools"
 )
 
 type Video struct {
@@ -12,7 +15,7 @@ type Video struct {
 	FavoriteCount int64
 	CommentCount  int64
 	Title         string
-	PublishDate   *time.Time
+	PublishDate   time.Time
 }
 
 func (t *Video) TableName() string {
@@ -21,19 +24,26 @@ func (t *Video) TableName() string {
 
 // PlayerUrl 地址格式为 "/videos/{author_id}/{video_id}"
 func (t *Video) PlayerUrl() string {
-	return fmt.Sprintf("/videos/%v/%v.mp4", t.AuthorId, t.Id)
+	localPath, _ := tools.ObtainVideoPath(t.AuthorId, t.Id)
+	ext := path.Ext(localPath)
+	return fmt.Sprintf("/videos/%v/%v.%v", t.AuthorId, t.Id, ext)
 }
 
 func (t *Video) CoverUrl() string {
-	return fmt.Sprintf("/covers/%v/%v.png", t.AuthorId, t.Id)
+	localPath, _ := tools.ObtainCoverPath(t.AuthorId, t.Id)
+	if _, err := os.Stat(localPath); err != nil {
+		tools.ExtractCover(t.AuthorId, t.Id)
+	}
+	ext := path.Ext(localPath)
+	return fmt.Sprintf("/covers/%v/%v.%v", t.AuthorId, t.Id, ext)
 }
 
-func AddVideo(video *Video) error {
+func AddVideo(video *Video) (int64, error) {
 	if err := db.Create(video).Error; err != nil {
 		log.Fatal(err)
-		return err
+		return 0, err
 	}
-	return nil
+	return video.Id, nil
 }
 
 func FindVideoById(videoId int64) (*Video, error) {
@@ -51,6 +61,14 @@ func DeleteVideo(videoId int64) error {
 		return err
 	}
 	return nil
+}
+
+func ListVideoByAuthorId(authorId int64) (videos []*Video, err error) {
+	if err = db.Where("author_id = ?", authorId).Find(&videos).Error; err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	return
 }
 
 // ListVideoBefore

@@ -41,18 +41,22 @@ func TestAddVideo(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	current := time.Now()
 	video := Video{
 		AuthorId:      125794582365478165,
 		FavoriteCount: 0,
 		CommentCount:  0,
 		Title:         "Test",
-		PublishDate:   &current,
+		PublishDate:   time.Now(),
 	}
-	if err := db.Create(&video).Error; err != nil {
-		log.Fatal(err)
+	id, err := AddVideo(&video)
+	if err != nil {
+		t.Error(err)
 		return
 	}
+	if id == 0 {
+		t.Error("Not give correct id")
+	}
+	fmt.Println(id)
 }
 
 func TestDeleteVideo(t *testing.T) {
@@ -60,7 +64,7 @@ func TestDeleteVideo(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	if err := DeleteVideo(597814563214596348); err != nil {
+	if err := DeleteVideo(597814563214596349); err != nil {
 		log.Fatal(err)
 		return
 	}
